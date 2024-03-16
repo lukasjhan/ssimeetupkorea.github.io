@@ -1,6 +1,8 @@
 /* globals omitTerms, respecConfig, $, require */
-/* exported linkCrossReferences, restrictReferences, fixIncludes */
-
+/* DID WG common Javascript ReSpec functions */
+/*  ... stolen from Gregg Kellogg of the JSON-LD 1.1 Working Group */
+/*  ... who stole it from Manu Sporny of the JSON-LD 1.0 Working Group */
+/*  ... who stole it from Shane McCarron, that beautiful, beautiful man. */
 var ccg = {
   // Add as the respecConfig localBiblio variable
   // Extend or override global respec references
@@ -18,7 +20,7 @@ var ccg = {
       title: "Verifiable Claims Use Cases",
       href: "https://www.w3.org/TR/verifiable-claims-use-cases/",
       authors: [
-      	"Shane McCarron",
+        "Shane McCarron",
         "Daniel Burnett",
         "Gregg Kellogg",
         "Brian Sletten",
@@ -26,18 +28,6 @@ var ccg = {
       ],
       status: "FPWD",
       publisher: "Verifiable Claims Working Group"
-    },
-    "DID-USE-CASES": {
-      title: "Decentralized Identifier Use Cases",
-      href: "https://w3c.github.io/did-use-cases/",
-      authors: [
-      	"Joe Andrieu",
-        "Kim Hamilton Duffy",
-        "Ryan Grant",
-        "Adrian Gropper"
-      ],
-      status: "ED",
-      publisher: "Decentralized Identifier Working Group"
     },
     // aliases to known references
     "HTTP-SIGNATURES": {
@@ -87,16 +77,6 @@ var ccg = {
       status: "CG-DRAFT",
       publisher: "Digital Verification Community Group"
     },
-    "DID-METHOD-REGISTRY": {
-      title: "The Decentralized Identifier Method Registry",
-      href: "https://w3c-ccg.github.io/did-method-registry/",
-      authors: [
-        "Manu Sporny",
-        "Drummond Reed"
-      ],
-      status: "CG-DRAFT",
-      publisher: "Credentials Community Group"
-    },
     "MATRIX-URIS": {
       title: "Matrix URIs - Ideas about Web Architecture",
       date: "December 1996",
@@ -109,7 +89,7 @@ var ccg = {
     "HASHLINK": {
       title: "Cryptographic Hyperlinks",
       date: "December 2018",
-      href: "https://tools.ietf.org/html/draft-sporny-hashlink-02",
+      href: "https://tools.ietf.org/html/draft-sporny-hashlink-05",
       authors: [
         "Manu Sporny"
       ],
@@ -118,7 +98,7 @@ var ccg = {
     },
     "BASE58": {
       title: "The Base58 Encoding Scheme",
-      date: "December 2019",
+      date: "October 2020",
       href: "https://tools.ietf.org/html/draft-msporny-base58",
       authors: [
         "Manu Sporny"
@@ -146,154 +126,149 @@ var ccg = {
       ],
       status: "Draft Community Group Report",
       publisher: "Credentials Community Group"
+    },
+    "DID-RUBRIC": {
+      title: "Decentralized Characteristics Rubric v1.0",
+      href: "https://w3c.github.io/did-rubric/",
+      authors: [
+        "Joe Andrieu"
+      ],
+      status: "Draft Community Group Report",
+      publisher: "Credentials Community Group"
+    },
+    "PRIVACY-BY-DESIGN": {
+      title: "Privacy by Design",
+      href: "https://iapp.org/media/pdf/resource_center/pbd_implement_7found_principles.pdf",
+      authors: [
+        "Ann Cavoukian"
+      ],
+      date: "2011",
+      publisher: "Information and Privacy Commissioner"
+    },
+    "MULTIBASE": {
+      title: "The Multibase Encoding Scheme",
+      date: "February 2021",
+      href: "https://datatracker.ietf.org/doc/html/draft-multiformats-multibase-03",
+      authors: [
+        "Juan Benet",
+        "Manu Sporny"
+      ],
+      status: "Internet-Draft",
+      publisher: "IETF"
     }
   }
 };
 
 
+require(["core/pubsubhub"], (respecEvents) => {
+  "use strict";
 
-// We should be able to remove terms that are not actually
-// referenced from the common definitions
-//
-// the termlist is in a block of class "termlist", so make sure that
-// has an ID and put that ID into the termLists array so we can
-// interrogate all of the included termlists later.
-var termNames = [] ;
-var termLists = [] ;
-var termsReferencedByTerms = [] ;
+  console.log("RESPEC EVENTS", respecEvents);
 
-function restrictReferences(utils, content) {
-    "use strict";
-    var base = document.createElement("div");
-    base.innerHTML = content;
+  respecEvents.sub('end-all', (message) => {
+    console.log("END EVENT", message);
+    // remove data-cite on where the citation is to ourselves.
+    const selfDfns = document.querySelectorAll("dfn[data-cite^='" + respecConfig.shortName.toUpperCase() + "#']");
+    for (const dfn of selfDfns) {
+      delete dfn.dataset.cite;
+    }
 
-    // New new logic:
-    //
-    // 1. build a list of all term-internal references
-    // 2. When ready to process, for each reference INTO the terms,
-    // remove any terms they reference from the termNames array too.
-    $.each(base.querySelectorAll("dfn"), function(i, item) {
-        var $t = $(item) ;
-        var titles = $t.getDfnTitles();
-        var dropit = false;
-        // do we have an omitTerms
-        if (window.hasOwnProperty("omitTerms")) {
-            // search for a match
-            $.each(omitTerms, function(j, term) {
-                if (titles.indexOf(term) !== -1) {
-                    dropit = true;
-                }
-            });
-        }
-        // do we have an includeTerms
-        if (window.hasOwnProperty("includeTerms")) {
-            var found = false;
-            // search for a match
-            $.each(includeTerms, function(j, term) {
-                if (titles.indexOf(term) !== -1) {
-                    found = true;
-                }
-            });
-            if (!found) {
-                dropit = true;
-            }
-        }
-        if (dropit) {
-            $t.parent().next().remove();
-            $t.parent().remove();
-        } else {
-            var n = $t.makeID("dfn", titles[0]);
-            if (n) {
-                termNames[n] = $t.parent() ;
-            }
-        }
-    });
+    // Update data-cite references to ourselves.
+    const selfRefs = document.querySelectorAll("a[data-cite^='" + respecConfig.shortName.toUpperCase() + "#']");
+    for (const anchor of selfRefs) {
+      anchor.href= anchor.dataset.cite.replace(/^.*#/,"#");
+      delete anchor.dataset.cite;
+    }
 
-    var $container = $(".termlist",base) ;
-    var containerID = $container.makeID("", "terms") ;
-    termLists.push(containerID) ;
+  });
 
-    return (base.innerHTML);
-}
-// add a handler to come in after all the definitions are resolved
-//
-// New logic: If the reference is within a 'dl' element of
-// class 'termlist', and if the target of that reference is
-// also within a 'dl' element of class 'termlist', then
-// consider it an internal reference and ignore it.
-
-require(["core/pubsubhub"], function(respecEvents) {
-    "use strict";
-    respecEvents.sub('end', function(message) {
-        if (message === 'core/link-to-dfn') {
-            // all definitions are linked; find any internal references
-            $(".termlist a.internalDFN").each(function() {
-                var $r = $(this);
-                var id = $r.attr('href');
-                var idref = id.replace(/^#/,"") ;
-                if (termNames[idref]) {
-                    // this is a reference to another term
-                    // what is the idref of THIS term?
-                    var $def = $r.closest('dd') ;
-                    if ($def.length) {
-                        var $p = $def.prev('dt').find('dfn') ;
-                        var tid = $p.attr('id') ;
-                        if (tid) {
-                            if (termsReferencedByTerms[tid]) {
-                                termsReferencedByTerms[tid].push(idref);
-                            } else {
-                                termsReferencedByTerms[tid] = [] ;
-                                termsReferencedByTerms[tid].push(idref);
-                            }
-                        }
-                    }
-                }
-            }) ;
-
-            // clearRefs is recursive.  Walk down the tree of
-            // references to ensure that all references are resolved.
-            var clearRefs = function(theTerm) {
-                if ( termsReferencedByTerms[theTerm] ) {
-                    $.each(termsReferencedByTerms[theTerm], function(i, item) {
-                        if (termNames[item]) {
-                            delete termNames[item];
-                            clearRefs(item);
-                        }
-                    });
-                }
-                // make sure this term doesn't get removed
-                if (termNames[theTerm]) {
-                    delete termNames[theTerm];
-                }
-            };
-
-            // now termsReferencedByTerms has ALL terms that
-            // reference other terms, and a list of the
-            // terms that they reference
-            $("a.internalDFN").each(function () {
-                var $item = $(this) ;
-                var t = $item.attr('href');
-                var r = t.replace(/^#/,"") ;
-                // if the item is outside the term list
-                if ( ! $item.closest('dl.termlist').length ) {
-                    clearRefs(r);
-                }
-            });
-
-            // delete any terms that were not referenced.
-            Object.keys(termNames).forEach(function(term) {
-                var $p = $("#"+term) ;
-                if ($p) {
-                    var tList = $p.getDfnTitles();
-                    $p.parent().next().remove();
-                    $p.parent().remove() ;
-                    tList.forEach(function( item ) {
-                        if (respecConfig.definitionMap[item]) {
-                            delete respecConfig.definitionMap[item];
-                        }
-                    });
-                }
-            });
-        }
-    });
 });
+
+// Removes dfns that aren't referenced anywhere in the spec.
+// To ensure a definition appears in the Terminology section, use
+//  and link to it!
+// This is triggered by postProcess in the respec config.
+function restrictRefs(config, document){
+
+  // Get set of ids internal dfns referenced in the spec body
+  const internalDfnLinks = document.querySelectorAll("a.internalDFN");
+  let internalDfnIds = new Set();
+  for (const dfnLink of internalDfnLinks) {
+    const dfnHref = dfnLink.href.split("#")[1];
+    internalDfnIds.add(dfnHref);
+  }
+
+  // Remove unused dfns from the termlist
+  const termlist = document.querySelector(".termlist");
+  const linkIdsInDfns = [];
+  for (const child of termlist.querySelectorAll("dfn")){
+    if (!internalDfnIds.has(child.id)){
+      let dt = child.closest("dt");
+      let dd = dt.nextElementSibling;
+
+      // Get internal links from dfns we're going to remove
+      //  because these show up in the dfn-panels later and then
+      //  trigger the local-refs-exist linter (see below)
+      const linksInDfn = dd.querySelectorAll("a.internalDFN");
+      for (link of linksInDfn) {
+        linkIdsInDfns.push(link.id);
+      }
+
+      termlist.removeChild(dt);
+      termlist.removeChild(dd);
+    }
+  }
+
+  // Remove unused dfns from the dfn-panels
+  //  (these are hidden, but still trigger the local-refs-exist linter)
+  //  (this seems like a hack, there's probably a better way to hook into respec
+  //   before it gets to this point)
+  const dfnPanels = document.querySelectorAll(".dfn-panel");
+  for (const panel of dfnPanels) {
+    if (!internalDfnIds.has(panel.querySelector(".self-link").href.split("#")[1])){
+      panel.parentNode.removeChild(panel);
+    }
+
+    // Remove references to dfns we removed which link to other dfns
+    const panelLinks = panel.querySelectorAll("li a");
+    for (const link of panelLinks) {
+      if (linkIdsInDfns.includes(link.href.split("#")[1])) {
+        link.parentNode.removeChild(link);
+      }
+    }
+  }
+
+}
+
+function _esc(s) {
+  return s.replace(/&/g,'&amp;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;');
+}
+
+function reindent(text) {
+  // TODO: use trimEnd when Edge supports it
+  const lines = text.trimRight().split("\n");
+  while (lines.length && !lines[0].trim()) {
+    lines.shift();
+  }
+  const indents = lines.filter(s => s.trim()).map(s => s.search(/[^\s]/));
+  const leastIndent = Math.min(...indents);
+  return lines.map(s => s.slice(leastIndent)).join("\n");
+}
+
+function updateExample(doc, content) {
+  // perform transformations to make it render and prettier
+  return _esc(reindent(unComment(doc, content)));
+}
+
+function unComment(doc, content) {
+  // perform transformations to make it render and prettier
+  return content
+    .replace(/<!--/, '')
+    .replace(/-->/, '')
+    .replace(/< !\s*-\s*-/g, '<!--')
+    .replace(/-\s*- >/g, '-->')
+    .replace(/-\s*-\s*&gt;/g, '--&gt;');
+}
